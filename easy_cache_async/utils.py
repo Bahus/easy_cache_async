@@ -1,14 +1,34 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 
-import six
+def force_text(obj, encoding='utf-8'):
+    if isinstance(obj, str):
+        return obj
+
+    elif not isinstance(obj, bytes):
+        return str(obj)
+
+    try:
+        return obj.decode(encoding=encoding)
+    except UnicodeDecodeError:
+        return obj
+
+
+def force_binary(obj, encoding='utf-8'):
+    if isinstance(obj, bytes):
+        return obj
+    elif not isinstance(obj, str):
+        return bytes(obj)
+
+    try:
+        obj.encode(encoding=encoding)
+    except UnicodeEncodeError:
+        return obj
 
 
 def get_function_path(function, bound_to=None):
     """Get received function path (as string), to import function later
     with `import_string`.
     """
-    if isinstance(function, six.string_types):
+    if isinstance(function, str):
         return function
 
     # static and class methods
@@ -27,18 +47,17 @@ def get_function_path(function, bound_to=None):
 
     if not bound_to:
         try:
-            bound_to = six.get_method_self(function)
+            bound_to = function.__self__
         except AttributeError:
             pass
 
     if bound_to:
-        if isinstance(bound_to, six.class_types):
+        if isinstance(bound_to, type):
             func_path.append(bound_to.__name__)
         else:
             func_path.append(bound_to.__class__.__name__)
         func_path.append(real_function.__name__)
     else:
-        # qualname is available in Python 3 only
-        func_path.append(getattr(real_function, '__qualname__', real_function.__name__))
+        func_path.append(real_function.__qualname__)
 
     return '.'.join(func_path)

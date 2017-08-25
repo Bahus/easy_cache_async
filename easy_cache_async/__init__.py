@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
-from easy_cache.core import (
+from .core import (
     caches,
     create_cache_key,
     create_tag_cache_key,
@@ -17,5 +16,4 @@ from easy_cache.core import (
     MetaCallable,
 )
 
-from easy_cache.decorators import ecached, ecached_property, meta_accepted
-
+from .decorators import ecached, ecached_property, meta_accepted

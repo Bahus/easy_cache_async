@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 import collections
-import six
 from functools import update_wrapper
 
-from easy_cache.core import Cached, TaggedCached, DEFAULT_TIMEOUT, META_ACCEPTED_ATTR
+from .core import Cached, TaggedCached, DEFAULT_TIMEOUT, META_ACCEPTED_ATTR
 
 
 # noinspection PyPep8Naming
 class ecached(object):
-    """ Caches result of decorated callable.
-        Possible use-cases are:
+    """Caches result of decorated callable.
+    Possible use-cases are:
 
         @cached()
         def func(...):
@@ -75,7 +74,7 @@ class ecached(object):
                     self._instance = None
                     self._class = None
                 else:
-                    wrapped = six.get_method_function(wrapped)
+                    wrapped = wrapped.__func__
             else:
                 wrapped = self._func
 
@@ -101,8 +100,8 @@ class ecached(object):
 
 def ecached_property(cache_key=None, timeout=DEFAULT_TIMEOUT, tags=(), prefix=None,
                      cache_instance=None, cache_alias=None):
-    """ Works the same as `cached` decorator, but intended to use
-        for properties, e.g.:
+    """Works the same as `cached` decorator, but intended to use
+    for properties, e.g.:
 
         class User(object):
 
@@ -139,7 +138,7 @@ def ecached_property(cache_key=None, timeout=DEFAULT_TIMEOUT, tags=(), prefix=No
 
 
 def meta_accepted(func):
-
+    """Mark function with meta parameter"""
     if isinstance(func, (staticmethod, classmethod)):
         _func = func.__func__
     else:

@@ -35,15 +35,15 @@ def get_long_description():
 
 
 tests_require = [
-    'pytest==3.0.4',
-    'Django',
-    'django-redis==4.2.0',
-    'memory-profiler==0.33',
-    'mock==1.0.1',
-    'psutil==3.1.1',
-    'python-memcached==1.57',
-    'redis==2.10.3',
-    'pylibmc==1.5.0',
+    'pytest==3.1.2',
+    'pytest-asyncio=0.6.0',
+    # 'Django',
+    # 'django-redis==4.2.0',
+    # 'memory-profiler==0.33',
+    # 'psutil==3.1.1',
+    # 'python-memcached==1.57',
+    # 'redis==2.10.3',
+    # 'pylibmc==1.5.0',
     'tox-pyenv==1.0.3',
 ]
 

@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import collections
 import inspect
 import logging
@@ -8,9 +5,7 @@ import os
 import threading
 from time import time
 
-import six
-
-from .compat import force_text, force_binary, getargspec
+from .compat import force_text, getargspec
 from .utils import get_function_path
 
 
@@ -59,13 +54,13 @@ CACHE_KEY_DELIMITER = force_text(':')
 TAG_KEY_PREFIX = force_text('tag')
 
 LAZY_MODE = os.environ.get('EASY_CACHE_LAZY_MODE_ENABLE', '') == 'yes'
-DEFAULT_CACHE_ALIAS = 'default-easy-cache'
-META_ACCEPTED_ATTR = '_easy_cache_meta_accepted'
+DEFAULT_CACHE_ALIAS = 'default-easy-cache-async'
+META_ACCEPTED_ATTR = '_easy_cache_async_meta_accepted'
 META_ARG_NAME = 'meta'
 
 
 class CacheHandler(object):
-    """ Inspired by Django """
+    """Inspired by Django"""
 
     def __init__(self):
         self._caches = threading.local()
@@ -106,7 +101,7 @@ caches = CacheHandler()
 
 # setters
 def set_cache_key_delimiter(delimiter):
-    if not isinstance(delimiter, six.string_types):
+    if not isinstance(delimiter, str):
         raise TypeError('Invalid delimiter type, string required')
 
     global CACHE_KEY_DELIMITER
@@ -114,7 +109,7 @@ def set_cache_key_delimiter(delimiter):
 
 
 def set_tag_key_prefix(prefix):
-    if not isinstance(prefix, six.string_types):
+    if not isinstance(prefix, str):
         raise TypeError('Invalid tag prefix type, string required')
 
     global TAG_KEY_PREFIX
@@ -129,28 +124,28 @@ def get_default_cache_instance():
     return caches.get_default()
 
 
-def invalidate_cache_key(cache_key, cache_instance=None, cache_alias=None):
+async def invalidate_cache_key(cache_key, cache_instance=None, cache_alias=None):
     _cache = cache_instance or caches[cache_alias or DEFAULT_CACHE_ALIAS]
-    return _cache.delete(cache_key)
+    return await _cache.delete(cache_key)
 
 
-def invalidate_cache_prefix(prefix, cache_instance=None, cache_alias=None):
-    return invalidate_cache_tags(prefix, cache_instance, cache_alias)
+async def invalidate_cache_prefix(prefix, cache_instance=None, cache_alias=None):
+    return await invalidate_cache_tags(prefix, cache_instance, cache_alias)
 
 
-def invalidate_cache_tags(tags, cache_instance=None, cache_alias=None):
-    if isinstance(tags, six.string_types):
+async def invalidate_cache_tags(tags, cache_instance=None, cache_alias=None):
+    if isinstance(tags, str):
         tags = [tags]
 
     _cache = TaggedCacheProxy(cache_instance or caches[cache_alias or DEFAULT_CACHE_ALIAS])
-    return _cache.invalidate(tags)
+    return await _cache.invalidate(tags)
 
 
 def create_cache_key(*parts):
     """ Generate cache key using global delimiter char """
     if len(parts) == 1:
         parts = parts[0]
-        if isinstance(parts, six.string_types):
+        if isinstance(parts, str):
             parts = [parts]
 
     return CACHE_KEY_DELIMITER.join(force_text(p) for p in parts)
@@ -170,8 +165,8 @@ def compare_dicts(d1, d2):
 
 
 class MetaCallable(collections.Mapping):
-    """ Object contains meta information about method or function decorated with ecached,
-        passed arguments, returned results, signature description and so on.
+    """Object contains meta information about method or function decorated with ecached:
+    passed arguments, returned results, signature description and so on.
     """
 
     def __init__(self, args=(), kwargs=None, returned_value=NOT_SET, call_args=None):
@@ -194,6 +189,9 @@ class MetaCallable(collections.Mapping):
     def __getitem__(self, item):
         return self.call_args[item]
 
+    def __repr__(self):
+        return '{}: function={}'.format(self.__class__.__name__, self.function)
+
     @property
     def has_returned_value(self):
         return self.returned_value is not NOT_SET
@@ -210,12 +208,12 @@ class TaggedCacheProxy(object):
         """
         self._cache_instance = cache_instance
 
-    def make_value(self, key, value, tags):
+    async def make_value(self, key, value, tags):
         data = {}
         tags = [create_tag_cache_key(_) for _ in tags]
 
         # get tags and their cached values (if exists)
-        tags_dict = self._cache_instance.get_many(tags)
+        tags_dict = await self._cache_instance.get_many(tags)
 
         # set new timestamps for missed tags
         for tag_key in tags:
@@ -235,12 +233,12 @@ class TaggedCacheProxy(object):
     def __getattr__(self, item):
         return getattr(self._cache_instance, item)
 
-    def set(self, key, value, *args, **kwargs):
-        value_dict = self.make_value(key, value, kwargs.pop('tags'))
-        return self._cache_instance.set_many(value_dict, *args, **kwargs)
+    async def set(self, key, value, *args, **kwargs):
+        value_dict = await self.make_value(key, value, kwargs.pop('tags'))
+        return await self._cache_instance.set_many(value_dict, *args, **kwargs)
 
-    def get(self, key, default=None, **kwargs):
-        value = self._cache_instance.get(key, default=NOT_FOUND, **kwargs)
+    async def get(self, key, default=None, **kwargs):
+        value = await self._cache_instance.get(key, default=NOT_FOUND, **kwargs)
 
         # not found in cache
         if value is NOT_FOUND:
@@ -251,7 +249,7 @@ class TaggedCacheProxy(object):
             return value
 
         # check if it has valid tags
-        cached_tags_dict = self._cache_instance.get_many(tags_dict.keys())
+        cached_tags_dict = await self._cache_instance.get_many(tags_dict.keys())
 
         # compare dicts
         if not compare_dicts(cached_tags_dict, tags_dict):
@@ -260,10 +258,10 @@ class TaggedCacheProxy(object):
 
         return value.get('value', default)
 
-    def invalidate(self, tags):
+    async def invalidate(self, tags):
         """ Invalidates cache by tags """
         ts = get_timestamp()
-        return self._cache_instance.set_many({create_tag_cache_key(tag): ts for tag in tags})
+        return await self._cache_instance.set_many({create_tag_cache_key(tag): ts for tag in tags})
 
 
 class Cached(object):
@@ -286,6 +284,9 @@ class Cached(object):
         else:
             self.cache_key = cache_key
 
+        self._function = None
+        self.is_coroutine = False
+
         self.function = function
         self.as_property = as_property
         self.timeout = timeout
@@ -295,6 +296,15 @@ class Cached(object):
         self._scope = None
         self._cache_instance = cache_instance
         self._cache_alias = cache_alias or DEFAULT_CACHE_ALIAS
+
+    @property
+    def function(self):
+        return self._function
+
+    @function.setter
+    def function(self, value):
+        self._function = value
+        self.is_coroutine = inspect.iscoroutinefunction(value)
 
     @property
     def scope(self):
@@ -323,18 +333,22 @@ class Cached(object):
 
     cache_instance = property(_get_cache_instance)
 
-    def __call__(self, *args, **kwargs):
+    async def __call__(self, *args, **kwargs):
         callable_meta = self.collect_meta(args, kwargs)
         cache_key = self.generate_cache_key(callable_meta)
-        cached_value = self.get_cached_value(cache_key)
+        cached_value = await self.get_cached_value(cache_key)
 
         if cached_value is NOT_FOUND:
+            logger.debug('MISS cache_key="%s"', cache_key)
             value = self.function(*callable_meta.args, **callable_meta.kwargs)
+            if self.is_coroutine:
+                value = await value
+
             callable_meta.returned_value = value
-            self.set_cached_value(cache_key, callable_meta)
+            await self.set_cached_value(cache_key, callable_meta)
             return value
 
-        logger.debug('Hit cache_key="%s"', cache_key)
+        logger.debug('HIT cache_key="%s"', cache_key)
         return cached_value
 
     def create_cache_key(self, *args, **kwargs):
@@ -377,18 +391,18 @@ class Cached(object):
 
         return self
 
-    def get_cached_value(self, cache_key):
+    async def get_cached_value(self, cache_key):
         logger.debug('Get cache_key="%s"', cache_key)
-        return self.cache_instance.get(cache_key, NOT_FOUND)
+        return await self.cache_instance.get(cache_key, NOT_FOUND)
 
-    def set_cached_value(self, cache_key, callable_meta, **extra):
+    async def set_cached_value(self, cache_key, callable_meta, **extra):
         timeout = self.get_timeout(callable_meta)
 
         if timeout is not DEFAULT_TIMEOUT:
             extra['timeout'] = timeout
 
         logger.debug('Set cache_key="%s" timeout="%s"', cache_key, extra.get('timeout'))
-        self.cache_instance.set(cache_key, callable_meta.returned_value, **extra)
+        await self.cache_instance.set(cache_key, callable_meta.returned_value, **extra)
 
     @staticmethod
     def _check_if_meta_required(callable_template):
@@ -436,9 +450,9 @@ class Cached(object):
             return template
 
         try:
-            if isinstance(template, six.string_types):
+            if isinstance(template, str):
                 return force_text(template).format(**meta.call_args)
-            elif isinstance(template, (list, tuple, set)):
+            elif isinstance(template, (list, tuple, set, collections.Iterable)):
                 return [force_text(t).format(**meta.call_args) for t in template]
         except KeyError as ex:
             raise ValueError('Parameter "%s" is required for "%s"' % (ex, template))
@@ -484,23 +498,31 @@ class Cached(object):
     def generate_cache_key(self, callable_meta):
         return self._format(self.cache_key, callable_meta)
 
-    def invalidate_cache_by_key(self, *args, **kwargs):
+    async def invalidate_cache_by_key(self, *args, **kwargs):
         callable_meta = self.collect_meta(args, kwargs)
         cache_key = self.generate_cache_key(callable_meta)
-        return self.cache_instance.delete(cache_key)
+        return await self.cache_instance.delete(cache_key)
 
-    def __unicode__(self):
+    async def refresh_cache(self, *args, **kwargs):
+        callable_meta = self.collect_meta(args, kwargs)
+        cache_key = self.generate_cache_key(callable_meta)
+
+        logger.debug('REFRESH cache_key="%s"', cache_key)
+        value = self.function(*callable_meta.args, **callable_meta.kwargs)
+        if self.is_coroutine:
+            value = await value
+
+        callable_meta.returned_value = value
+        await self.set_cached_value(cache_key, callable_meta)
+        return value
+
+    def __str__(self):
         return (
             '<Cached: callable="{}", cache_key="{}", timeout={}>'.format(
                 get_function_path(self.function, self.scope),
                 get_function_path(self.cache_key),
                 self.timeout)
         )
-
-    def __str__(self):
-        if six.PY2:
-            return force_binary(self.__unicode__())
-        return self.__unicode__()
 
     def __repr__(self):
         try:
@@ -530,7 +552,7 @@ class TaggedCached(Cached):
             timeout=timeout,
             as_property=as_property,
         )
-        assert tags or prefix
+        assert tags or prefix, r'Tag(s) or\and prefix must be passed'
         self.tags = tags
         self.prefix = prefix
 
@@ -550,7 +572,7 @@ class TaggedCached(Cached):
                 self._cache_instance = TaggedCacheProxy(caches[self._cache_alias])
             return self._cache_instance
 
-    def invalidate_cache_by_tags(self, tags=(), *args, **kwargs):
+    async def invalidate_cache_by_tags(self, tags=(), *args, **kwargs):
         """ Invalidate cache for this method or property by one of provided tags
             :type tags: str | list | tuple | callable
         """
@@ -558,7 +580,7 @@ class TaggedCached(Cached):
             raise ValueError('Tags were not specified, nothing to invalidate')
 
         def to_set(obj):
-            return set([obj] if isinstance(obj, six.string_types) else obj)
+            return set([obj] if isinstance(obj, str) else obj)
 
         callable_meta = self.collect_meta(args, kwargs)
         all_tags = to_set(self._format(self.tags, callable_meta))
@@ -570,15 +592,15 @@ class TaggedCached(Cached):
             if all_tags:
                 tags &= all_tags
 
-        return self.cache_instance.invalidate(tags)
+        return await self.cache_instance.invalidate(tags)
 
-    def invalidate_cache_by_prefix(self, *args, **kwargs):
+    async def invalidate_cache_by_prefix(self, *args, **kwargs):
         if not self.prefix:
             raise ValueError('Prefix was not specified, nothing to invalidate')
 
         callable_meta = self.collect_meta(args, kwargs)
         prefix = self._format(self.prefix, callable_meta)
-        return self.cache_instance.invalidate([prefix])
+        return await self.cache_instance.invalidate([prefix])
 
     def generate_cache_key(self, callable_meta):
         cache_key = super(TaggedCached, self).generate_cache_key(callable_meta)
@@ -587,7 +609,7 @@ class TaggedCached(Cached):
             cache_key = create_cache_key(prefix, cache_key)
         return cache_key
 
-    def set_cached_value(self, cache_key, callable_meta, **extra):
+    async def set_cached_value(self, cache_key, callable_meta, **extra):
         # generate tags and prefix only after successful execution
         tags = self._format(self.tags, callable_meta)
 
@@ -595,10 +617,10 @@ class TaggedCached(Cached):
             prefix = self._format(self.prefix, callable_meta)
             tags = set(tags) | {prefix}
 
-        return super(TaggedCached, self).set_cached_value(cache_key, callable_meta, tags=tags)
+        return await super(TaggedCached, self).set_cached_value(cache_key, callable_meta, tags=tags)
 
-    def __unicode__(self):
-        return six.text_type(
+    def __str__(self):
+        return (
             '<TaggedCached: callable="{}", cache_key="{}", tags="{}", prefix="{}", '
             'timeout={}>'.format(
                 get_function_path(self.function, self.scope),
