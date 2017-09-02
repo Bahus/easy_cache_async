@@ -1,3 +1,36 @@
+import inspect
+from collections import namedtuple
+from inspect import Parameter
+
+
+ArgSpec = namedtuple('ArgSpec', 'args varargs keywords defaults')
+
+
+def getargspec(func):
+    signature = inspect.signature(func)
+
+    args = []
+    varargs = None
+    keywords = None
+    defaults = []
+
+    for param in signature.parameters.values():  # type: Parameter
+        if param.kind == Parameter.VAR_POSITIONAL:
+            varargs = param.name
+        elif param.kind in (
+                Parameter.POSITIONAL_ONLY,
+                Parameter.KEYWORD_ONLY,
+                Parameter.POSITIONAL_OR_KEYWORD):
+            args.append(param.name)
+        elif param.kind == Parameter.VAR_KEYWORD:
+            keywords = param.name
+
+        # noinspection PyProtectedMember
+        if param.default is not inspect._empty:
+            defaults.append(param.default)
+
+    return ArgSpec(args, varargs, keywords, tuple(defaults))
+
 
 def force_text(obj, encoding='utf-8'):
     if isinstance(obj, str):
@@ -19,7 +52,7 @@ def force_binary(obj, encoding='utf-8'):
         return bytes(obj)
 
     try:
-        obj.encode(encoding=encoding)
+        return obj.encode(encoding=encoding)
     except UnicodeEncodeError:
         return obj
 

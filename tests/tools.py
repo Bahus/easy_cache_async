@@ -7,13 +7,19 @@ import pytest
 import typing
 
 from easy_cache_async import create_tag_cache_key, invalidate_cache_key, invalidate_cache_tags, set_global_cache_instance
-from easy_cache_async.compat import force_text
+
 from easy_cache_async.contrib.base import BaseCacheInstance
+from easy_cache_async.contrib.redis_cache import RedisCacheInstance
+from easy_cache_async.core import DEFAULT_TIMEOUT
+from easy_cache_async.utils import force_text
+
+
+CacheType = typing.Union[BaseCacheInstance, RedisCacheInstance]
 
 
 class AbstractCacheInstanceProxy(ABC):
 
-    def __init__(self, cache_instance: BaseCacheInstance):
+    def __init__(self, cache_instance: CacheType):
         self.cache_instance = cache_instance
 
     def __getattr__(self, item):
@@ -84,25 +90,32 @@ class BaseTest(ABC):
     def get_cache_mock() -> CacheMock:
         pass
 
-    @staticmethod
-    @abstractmethod
-    def get_local_cache() -> AbstractCacheInstanceProxy:
+    def setup_test(self):
+        pass
+
+    def teardown_test(self):
         pass
 
     # noinspection PyAttributeOutsideInit
     @pytest.fixture()
-    def setup(self, event_loop):
+    def setup(self, event_loop, cache_proxy):
+        self.event_loop = event_loop
         self.cache_mock = self.get_cache_mock()
-        self.local_cache = self.get_local_cache()
+        self.local_cache = cache_proxy
         set_global_cache_instance(self.local_cache.cache_instance)
+        self.setup_test()
 
         yield
 
         self.cache_mock.reset_mock()
-        event_loop.run_until_complete(self.local_cache.clear())
+        self.teardown_test()
+
+        del self.event_loop
+        del self.cache_mock
+        del self.local_cache
 
     @staticmethod
-    async def _get_property_value(value):
+    async def _get_awaitable_value(value):
         if inspect.iscoroutine(value):
             return await value
         return value
@@ -193,6 +206,9 @@ class BaseTest(ABC):
         self.cache_mock.reset_mock()
 
     async def _check_timeout(self, cache_key, timeout):
+        if timeout is DEFAULT_TIMEOUT:
+            timeout = None
+
         cache_key_exists = await self.local_cache.contains(cache_key)
         assert cache_key_exists, '_check_cache_key required to use this method'
         assert await self.local_cache.get_timeout(cache_key) == timeout

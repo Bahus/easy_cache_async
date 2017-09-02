@@ -27,23 +27,14 @@ def get_long_description():
     doc = readme.encode('utf8', errors='replace')
     rst = p.communicate(doc)[0]
 
-    if sys.version_info[0] > 2:
-        # PY3
-        return rst.decode()
-    else:
-        return rst
+    return str(rst)
 
 
 tests_require = [
     'pytest==3.1.2',
-    'pytest-asyncio=0.6.0',
-    # 'Django',
-    # 'django-redis==4.2.0',
-    # 'memory-profiler==0.33',
-    # 'psutil==3.1.1',
-    # 'python-memcached==1.57',
-    # 'redis==2.10.3',
-    # 'pylibmc==1.5.0',
+    'pytest-asyncio==0.6.0',
+    'cachetools==2.0.1',
+    'aioredis==0.3.3',
     'tox-pyenv==1.0.3',
 ]
 
@@ -58,7 +49,7 @@ setup(
     author_email='bahusoff@gmail.com',
     url='https://github.com/Bahus/easy_cache_async',
     keywords=['cache', 'decorator', 'invalidation',
-              'memcached', 'redis', 'asyncio'],
+              'locmem', 'redis', 'asyncio'],
     platforms='Platform Independent',
     license='MIT',
     classifiers=[

@@ -1,5 +1,5 @@
 from .base import BaseCacheInstance, SerializerMixin
-from easy_cache_async.core import DEFAULT_TIMEOUT, NOT_FOUND
+from ..core import DEFAULT_TIMEOUT, NOT_FOUND
 
 
 class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
@@ -19,7 +19,7 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
         return dict(
             zip(
                 keys,
-                map(self.load_value, await self.client.mget(self.make_keys(keys)))
+                map(self.load_value, await self.client.mget(*self.make_keys(keys)))
             )
         )
 
@@ -27,8 +27,7 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
         """
             :param timeout: must be in seconds
         """
-        if timeout is DEFAULT_TIMEOUT:
-            timeout = None
+        timeout = self.make_timeout(timeout)
 
         return await self.client.set(
             self.make_key(key),
@@ -40,14 +39,15 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
         """
             :param timeout: must be in seconds
         """
-        if timeout is DEFAULT_TIMEOUT:
-            timeout = None
+        timeout = self.make_timeout(timeout)
+
+        pairs = []
+        for key, value in data_dict.items():
+            pairs.append(self.make_key(key))
+            pairs.append(self.dump_value(value))
 
         pipe = self.client.pipeline()
-        pipe.mset(
-            {self.make_key(key): self.dump_value(value)
-             for key, value in data_dict.items()}
-        )
+        pipe.mset(*pairs)
 
         if timeout:
             for key in data_dict:
@@ -56,7 +56,7 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
         return await pipe.execute()
 
     async def delete(self, key):
-        return await self.client.delete(self.make_key(key))
+        return bool(await self.client.delete(self.make_key(key)))
 
     async def get(self, key, default=NOT_FOUND):
         result = await self.client.get(self.make_key(key))

@@ -2,8 +2,8 @@ import pytest
 
 from easy_cache_async import ecached, invalidate_cache_key, invalidate_cache_prefix
 from easy_cache_async.core import create_cache_key
+
 from .tools import CacheMock, BaseTest
-from .proxies import LocMemCacheProxy
 
 
 cache_mock = CacheMock()
@@ -21,11 +21,7 @@ async def second_func(a, b, c=100):
 
 @pytest.mark.usefixtures('setup')
 @pytest.mark.asyncio
-class TestBasicLocMemCache(BaseTest):
-
-    @staticmethod
-    def get_local_cache():
-        return LocMemCacheProxy.create(maxsize=100)
+class TestBasic(BaseTest):
 
     @staticmethod
     def get_cache_mock() -> CacheMock:

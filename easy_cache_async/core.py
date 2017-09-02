@@ -5,8 +5,7 @@ import os
 import threading
 from time import time
 
-from .compat import force_text, getargspec
-from .utils import get_function_path
+from .utils import force_text, get_function_path, getargspec
 
 
 try:
@@ -53,13 +52,13 @@ DEFAULT_TIMEOUT = Value('DEFAULT_TIMEOUT')
 CACHE_KEY_DELIMITER = force_text(':')
 TAG_KEY_PREFIX = force_text('tag')
 
-LAZY_MODE = os.environ.get('EASY_CACHE_LAZY_MODE_ENABLE', '') == 'yes'
+LAZY_MODE = os.environ.get('EASY_CACHE_ASYNC_LAZY_MODE_ENABLE', '') == 'yes'
 DEFAULT_CACHE_ALIAS = 'default-easy-cache-async'
 META_ACCEPTED_ATTR = '_easy_cache_async_meta_accepted'
 META_ARG_NAME = 'meta'
 
 
-class CacheHandler(object):
+class CacheHandler:
     """Inspired by Django"""
 
     def __init__(self):
@@ -197,7 +196,7 @@ class MetaCallable(collections.Mapping):
         return self.returned_value is not NOT_SET
 
 
-class TaggedCacheProxy(object):
+class TaggedCacheProxy:
     """ Each cache key/value pair can have additional tags to check
         if cached values is still valid.
     """
@@ -213,7 +212,7 @@ class TaggedCacheProxy(object):
         tags = [create_tag_cache_key(_) for _ in tags]
 
         # get tags and their cached values (if exists)
-        tags_dict = await self._cache_instance.get_many(tags)
+        tags_dict = await self._cache_instance.get_many(tags)  # type: dict
 
         # set new timestamps for missed tags
         for tag_key in tags:
@@ -225,7 +224,8 @@ class TaggedCacheProxy(object):
 
         data[key] = {
             'value': value,
-            'tags': tags_dict,
+            # remove tags with None value
+            'tags': {k: v for k, v in tags_dict.items() if v is not None},
         }
 
         return data
@@ -264,7 +264,7 @@ class TaggedCacheProxy(object):
         return await self._cache_instance.set_many({create_tag_cache_key(tag): ts for tag in tags})
 
 
-class Cached(object):
+class Cached:
 
     def __init__(self,
                  function,
@@ -442,9 +442,14 @@ class Cached(object):
 
         if isinstance(template, collections.Callable):
             if self._check_if_meta_required(template):
-                return template(meta)
+                value = template(meta)
             else:
-                return template(*meta.args, **meta.kwargs)
+                value = template(*meta.args, **meta.kwargs)
+
+            if inspect.iscoroutine(value):
+                raise RuntimeError('Coroutine template "%s" is not allowed' % template)
+
+            return value
 
         if not self.function:
             return template

@@ -1,9 +1,8 @@
 import json
 from abc import ABC, abstractmethod
 
-from easy_cache_async import create_cache_key
-from easy_cache_async.utils import force_text, force_binary
-from easy_cache_async.core import DEFAULT_TIMEOUT, NOT_FOUND
+from ..core import DEFAULT_TIMEOUT, NOT_FOUND, create_cache_key
+from ..utils import force_binary, force_text
 
 
 class BaseCacheInstance(ABC):
@@ -11,6 +10,7 @@ class BaseCacheInstance(ABC):
     def __init__(self, **options):
         self.prefix = options.get('prefix')
         self.make_key = options.get('make_key', self.default_make_key)
+        self.timeout = options.get('timeout')
         self.options = options
 
     def default_make_key(self, key):
@@ -20,6 +20,11 @@ class BaseCacheInstance(ABC):
 
     def make_keys(self, keys):
         return [self.make_key(key) for key in keys]
+
+    def make_timeout(self, timeout):
+        if timeout is DEFAULT_TIMEOUT:
+            return self.timeout
+        return timeout
 
     @abstractmethod
     async def get(self, key, default=NOT_FOUND):
@@ -60,6 +65,7 @@ class BaseCacheInstance(ABC):
 
 
 class SerializerMixin:
+    """Interface to support data serialization"""
 
     def __init__(self, **options):
         self.serializer = options.pop('serializer', json)

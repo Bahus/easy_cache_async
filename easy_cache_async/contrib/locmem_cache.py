@@ -1,14 +1,17 @@
-from .base import BaseCacheInstance
-
-from collections import namedtuple
 from asyncio import Lock
-from easy_cache_async.core import DEFAULT_TIMEOUT, NOT_FOUND, get_timestamp
+from collections import namedtuple
+
+from .base import BaseCacheInstance
+from ..core import DEFAULT_TIMEOUT, NOT_FOUND, get_timestamp
 
 
 class CachedValue(namedtuple('CachedValue', ['value', 'timeout', 'timestamp'])):
 
     @property
     def is_valid(self):
+        if not self.timeout:
+            return True
+
         if self.timeout is DEFAULT_TIMEOUT:
             return True
 
@@ -31,9 +34,9 @@ class LocMemCacheInstance(BaseCacheInstance):
         super().__init__(**options)
 
     async def get(self, key, default=NOT_FOUND):
-        return self.sget(key, default)
+        return self.s_get(key, default)
 
-    def sget(self, key, default=NOT_FOUND):
+    def s_get(self, key, default=NOT_FOUND):
         value = self.client.get(self.make_key(key), NOT_FOUND)  # type: CachedValue
 
         if value is NOT_FOUND:
@@ -42,7 +45,9 @@ class LocMemCacheInstance(BaseCacheInstance):
         return value.value if value.is_valid else default
 
     async def set(self, key, value, timeout=DEFAULT_TIMEOUT):
-        # TODO: this is not thread safe lock
+        timeout = self.make_timeout(timeout)
+
+        # this is not thread safe lock
         async with self.lock:
             self.client[self.make_key(key)] = CachedValue(value, timeout, get_timestamp())
 
@@ -55,12 +60,13 @@ class LocMemCacheInstance(BaseCacheInstance):
             return False
 
     async def get_many(self, keys):
-        return {key: self.sget(key, default=None) for key in keys}
+        return {key: self.s_get(key, default=None) for key in keys}
 
     async def set_many(self, data_dict: dict, timeout=DEFAULT_TIMEOUT):
         timestamp = get_timestamp()
+        timeout = self.make_timeout(timeout)
 
-        # TODO: this is not thread safe lock
+        # this is not thread safe lock
         async with self.lock:
             self.client.update({
                 self.make_key(key): CachedValue(value, timeout, timestamp)

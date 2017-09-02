@@ -15,7 +15,7 @@ from easy_cache import caches
 from easy_cache.contrib.redis_cache import RedisCacheInstance
 from easy_cache.decorators import ecached
 
-from tests.conf import REDIS_HOST, MEMCACHED_HOST
+from tests.conftest import REDIS_HOST, MEMCACHED_HOST
 
 
 settings.configure(
