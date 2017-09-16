@@ -1,4 +1,6 @@
-1. Contrib tests
-2. Bench
-3. Docs
-4. Setup (Python 3 Only)
+1. Dummy Cache (done)
+2. Contrib tests (done)
+3. Bench
+4. Docs
+5. Setup (Python 3 Only)
+6. Travis

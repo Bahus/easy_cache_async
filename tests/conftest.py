@@ -19,22 +19,28 @@ if DEBUG:
     logging.basicConfig(level=logging.DEBUG)
 
 
-def create_locmem(event_loop, request):
+async def create_locmem(event_loop, request, **kwargs):
     from .proxies import LocMemCacheProxy
-    return LocMemCacheProxy.create(maxsize=10)
+    return await LocMemCacheProxy.create(
+        cache_options=dict(maxsize=10), **kwargs
+    )
 
 
-def create_locmem_lru(event_loop, request):
+async def create_locmem_lru(event_loop, request, **kwargs):
     from .proxies import LocMemCacheProxy
     from cachetools import LRUCache
-    return LocMemCacheProxy.create(cache_class=LRUCache, maxsize=10)
+
+    return await LocMemCacheProxy.create(
+        cache_class=LRUCache, cache_options=dict(maxsize=10), **kwargs
+    )
 
 
-def create_redis(event_loop, request):
+async def create_redis(event_loop, request, **kwargs):
     from .proxies import RedisCacheProxy
-    redis_proxy = event_loop.run_until_complete(RedisCacheProxy.create())
+    redis_proxy = await RedisCacheProxy.create(**kwargs)
 
     def teardown_redis():
+        event_loop.run_until_complete(redis_proxy.clear())
         redis_proxy.cache_instance.client.quit()
         event_loop.run_until_complete(redis_proxy.cache_instance.client.wait_closed())
 
@@ -59,7 +65,9 @@ def cache_proxy(event_loop, request):
     every provided cache backend.
     """
     cache_factory = request.param
-    cache_proxy_instance = cache_factory(event_loop, request)
+    cache_proxy_instance = event_loop.run_until_complete(
+        cache_factory(event_loop, request)
+    )
 
     yield cache_proxy_instance
 

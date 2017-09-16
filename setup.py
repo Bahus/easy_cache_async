@@ -35,7 +35,6 @@ tests_require = [
     'pytest-asyncio==0.6.0',
     'cachetools==2.0.1',
     'aioredis==0.3.3',
-    'tox-pyenv==1.0.3',
 ]
 
 

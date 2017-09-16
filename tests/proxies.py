@@ -6,6 +6,7 @@ import aioredis
 from easy_cache_async.contrib.locmem_cache import CachedValue, LocMemCacheInstance
 from easy_cache_async.contrib.redis_cache import RedisCacheInstance
 from easy_cache_async.core import NOT_FOUND
+from easy_cache_async.utils import force_text
 from .tools import AbstractCacheInstanceProxy
 
 
@@ -28,14 +29,16 @@ class LocMemCacheProxy(AbstractCacheInstanceProxy):
         return list(self.cache_instance.client.keys())
 
     @classmethod
-    def create(cls, cache_class=Cache, **kwargs):
-        return cls(LocMemCacheInstance(cache_class(**kwargs)))
+    async def create(cls, cache_class=Cache, cache_options=None, **kwargs):
+        cache_options = cache_options or {}
+        return cls(LocMemCacheInstance(cache_class(**cache_options), **kwargs))
 
 
 class RedisCacheProxy(AbstractCacheInstanceProxy):
 
     async def get_all_keys(self) -> typing.Sequence:
-        return await self.cache_instance.client.keys('*')
+        # convert bytes to string
+        return [force_text(_) for _ in await self.cache_instance.client.keys('*')]
 
     async def clear(self):
         return await self.cache_instance.client.flushall()

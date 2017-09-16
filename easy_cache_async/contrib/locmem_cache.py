@@ -56,7 +56,7 @@ class LocMemCacheInstance(BaseCacheInstance):
             del self.client[self.make_key(key)]
             return True
         except KeyError:
-            # fail silently
+            # fail silently if key is not found in cache
             return False
 
     async def get_many(self, keys):

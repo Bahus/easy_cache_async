@@ -8,33 +8,11 @@ from time import time
 from .utils import force_text, get_function_path, getargspec
 
 
-try:
-    # noinspection PyUnresolvedReferences
-    import django
-
-    # noinspection PyUnresolvedReferences
-    def _get_cache_by_alias(alias):
-        if alias == DEFAULT_CACHE_ALIAS:
-            from django.core.cache import cache
-        else:
-            try:
-                from django.core.cache import caches
-                cache = caches[alias]
-            except ImportError:
-                from django.core.cache import get_cache
-                cache = get_cache(alias)
-        return cache
-
-except ImportError:
-
-    class ImproperlyConfigured(Exception):
-        pass
-
-    def _get_cache_by_alias(alias):
-        raise ImproperlyConfigured('Cache instance not found for alias "%s"' % alias)
-
-
 logger = logging.getLogger(__name__)
+
+
+class ImproperlyConfigured(Exception):
+    pass
 
 
 class Value(object):
@@ -66,7 +44,7 @@ class CacheHandler:
 
     # noinspection PyMethodMayBeStatic
     def get_default_cache(self, alias):
-        return _get_cache_by_alias(alias)
+        raise ImproperlyConfigured('Cache instance not found for alias "{}"'.format(alias))
 
     def __getitem__(self, alias):
         try:

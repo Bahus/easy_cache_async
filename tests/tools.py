@@ -242,3 +242,9 @@ class BaseTest(ABC):
             result = await _callable(*args, **kwargs)
             self.cache_mock.assert_called_once_with(result)
             self.cache_mock.reset_mock()
+
+
+class AsyncMock(Mock):
+
+    async def __call__(self, *args, **kwargs):
+        return super(AsyncMock, self).__call__(*args, **kwargs)
