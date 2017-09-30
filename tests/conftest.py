@@ -41,9 +41,7 @@ async def create_redis(event_loop, request, **kwargs):
 
     def teardown_redis():
         event_loop.run_until_complete(redis_proxy.clear())
-        redis_proxy.cache_instance.client.quit()
-        event_loop.run_until_complete(redis_proxy.cache_instance.client.wait_closed())
-
+        event_loop.run_until_complete(redis_proxy.cache_instance.close())
     request.addfinalizer(teardown_redis)
     return redis_proxy
 

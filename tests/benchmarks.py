@@ -1,61 +1,28 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals, print_function
-
+import asyncio
 import math
+import sys
 from contextlib import contextmanager
 from timeit import default_timer
-from redis import StrictRedis
 
-import six
-from django.conf import settings
-# noinspection PyUnresolvedReferences
-from six.moves import xrange
+import aioredis
+from cachetools import LRUCache
 
-from easy_cache import caches
-from easy_cache.contrib.redis_cache import RedisCacheInstance
-from easy_cache.decorators import ecached
-
-from tests.conftest import REDIS_HOST, MEMCACHED_HOST
+from easy_cache_async import caches
+from easy_cache_async.contrib.locmem_cache import LocMemCacheInstance
+from easy_cache_async.contrib.redis_cache import RedisCacheInstance
+from easy_cache_async.decorators import ecached
+from tests.conftest import REDIS_CONNECTION
 
 
-settings.configure(
-    DEBUG=True,
-    DATABASES={
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:'
-        }
-    },
-    CACHES={
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'locmem',
-            'KEY_PREFIX': 'custom_prefix',
-        },
-        'memcached': {
-            'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-            'LOCATION': MEMCACHED_HOST,
-            'KEY_PREFIX': 'memcached',
-        },
-        'redis': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': 'redis://{}/1'.format(REDIS_HOST),
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            }
-        }
-    },
-    ROOT_URLCONF='',
-    INSTALLED_APPS=()
-)
+async def setup():
+    caches['locmem'] = LocMemCacheInstance(LRUCache(maxsize=1000))
+
+    redis = await aioredis.create_redis(REDIS_CONNECTION)
+    caches['redis'] = RedisCacheInstance(redis)
 
 
-# adds custom redis client
-redis_host, redis_port = REDIS_HOST.split(':')
-caches['redis_client'] = RedisCacheInstance(
-    StrictRedis(host=redis_host, port=redis_port),
-    prefix='bench'
-)
+async def teardown():
+    await caches['redis'].close()
 
 
 def ratio(a, b):
@@ -74,18 +41,12 @@ class Stopwatch(object):
         self.t0 = default_timer()
         self.laps = []
 
-    def __unicode__(self):
+    def __str__(self):
         m = self.mean()
         d = self.stddev()
         a = self.median()
         fmt = u'%-37s: mean=%0.5f, median=%0.5f, stddev=%0.5f, n=%3d, snr=%8.5f:%8.5f'
         return fmt % ((self.name, m, a, d, len(self.laps)) + ratio(m, d))
-
-    def __str__(self):
-        if six.PY2:
-            return six.binary_type(self.__unicode__())
-        else:
-            return self.__unicode__()
 
     def mean(self):
         return sum(self.laps) / len(self.laps)
@@ -113,65 +74,45 @@ class Stopwatch(object):
             te = default_timer()
             self.laps.append(te - t0)
 
+
 c = 0
 
 
 def time_consuming_operation():
     global c
     c += 1
-    a = sum(xrange(1000000))
+    a = sum(range(1000000))
     return str(a)
 
 
-def test_no_cache():
+async def test_no_cache():
     return time_consuming_operation()
 
 
-@ecached(cache_alias='default')
-def test_locmem_cache():
-    return time_consuming_operation()
-
-
-@ecached(cache_alias='memcached')
-def test_memcached_cache():
+@ecached(cache_alias='locmem')
+async def test_locmem_cache():
     return time_consuming_operation()
 
 
 @ecached(cache_alias='redis')
-def test_redis_cache():
+async def test_redis_cache():
     return time_consuming_operation()
 
 
-@ecached(cache_alias='redis_client')
-def test_redis_client_cache():
-    return time_consuming_operation()
-
-
-@ecached(cache_alias='default', tags=['tag1', 'tag2'])
-def test_locmem_cache_tags():
-    return time_consuming_operation()
-
-
-@ecached(cache_alias='memcached', tags=['tag1', 'tag2'])
-def test_memcached_cache_tags():
+@ecached(cache_alias='locmem', tags=['tag1', 'tag2'])
+async def test_locmem_cache_tags():
     return time_consuming_operation()
 
 
 @ecached(cache_alias='redis', tags=['tag1', 'tag2'])
-def test_redis_cache_tags():
+async def test_redis_cache_tags():
     return time_consuming_operation()
 
 
-@ecached(cache_alias='redis_client', tags=['tag1', 'tag2'])
-def test_redis_client_cache_tags():
-    return time_consuming_operation()
+async def main():
+    await setup()
 
-
-def main():
-    from django import get_version
-    import sys
-
-    print('=======', 'Python:', sys.version.replace('\n', ''), 'Django:', get_version(), '=======')
+    print('=======', 'Python:', sys.version.replace('\n', ''), '=======')
 
     global c
     n = 100
@@ -180,44 +121,40 @@ def main():
         (test_no_cache, n),
         (test_locmem_cache, 1),
         (test_locmem_cache_tags, 1),
-        (test_memcached_cache, 1),
-        (test_memcached_cache_tags, 1),
         (test_redis_cache, 1),
         (test_redis_cache_tags, 1),
-        (test_redis_client_cache, 1),
-        (test_redis_client_cache_tags, 1),
     )
 
-    def cleanup(function):
+    async def cleanup(function):
         if hasattr(function, 'invalidate_cache_by_key'):
-            function.invalidate_cache_by_key()
+            await function.invalidate_cache_by_key()
         if hasattr(function, 'invalidate_cache_by_tags'):
-            function.invalidate_cache_by_tags()
+            await function.invalidate_cache_by_tags()
 
     for method, count in benchmarks:
         sw1 = Stopwatch('[cleanup] ' + method.__name__)
-        cleanup(method)
+        await cleanup(method)
         c = 0
 
-        for _ in xrange(n):
+        for _ in range(n):
             with sw1.timing():
-                method()
-            cleanup(method)
+                await method()
+            await cleanup(method)
 
         assert c == n, c
         print(sw1)
 
         sw2 = Stopwatch('[ normal] ' + method.__name__)
-        cleanup(method)
+        await cleanup(method)
         c = 0
 
-        for _ in xrange(n):
+        for _ in range(n):
             # skip first time
             if _ == 0:
-                method()
+                await method()
                 continue
             with sw2.timing():
-                method()
+                await method()
 
         assert c == count, c
         print(sw2)
@@ -228,4 +165,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    loop.run_until_complete(teardown())
+

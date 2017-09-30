@@ -61,3 +61,10 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
     async def get(self, key, default=NOT_FOUND):
         result = await self.client.get(self.make_key(key))
         return default if result is None else self.load_value(result)
+
+    async def close(self):
+        """
+            Close redis connection
+        """
+        self.client.quit()
+        return await self.client.wait_closed()
