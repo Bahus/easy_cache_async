@@ -1,6 +1,5 @@
 import io
 import os
-import sys
 import subprocess
 
 from setuptools import setup, find_packages
@@ -52,10 +51,11 @@ setup(
     platforms='Platform Independent',
     license='MIT',
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 4 - Beta',
         'Environment :: Web Environment',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Topic :: Software Development :: Libraries :: Python Modules',
