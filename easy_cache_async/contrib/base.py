@@ -5,7 +5,7 @@ from ..core import DEFAULT_TIMEOUT, NOT_FOUND, create_cache_key
 from ..utils import force_binary, force_text
 
 
-class BaseCacheInstance(ABC):
+class BaseCacheBackend(ABC):
 
     def __init__(self, **options):
         self.prefix = options.get('prefix')

@@ -8,17 +8,16 @@ import aioredis
 from cachetools import LRUCache
 
 from easy_cache_async import caches
-from easy_cache_async.contrib.locmem_cache import LocMemCacheInstance
-from easy_cache_async.contrib.redis_cache import RedisCacheInstance
+from easy_cache_async.contrib import LocMemCacheBackend, RedisCacheBackend
 from easy_cache_async.decorators import ecached
 from tests.conftest import REDIS_CONNECTION
 
 
 async def setup():
-    caches['locmem'] = LocMemCacheInstance(LRUCache(maxsize=1000))
+    caches['locmem'] = LocMemCacheBackend(LRUCache(maxsize=1000))
 
     redis = await aioredis.create_redis(REDIS_CONNECTION)
-    caches['redis'] = RedisCacheInstance(redis)
+    caches['redis'] = RedisCacheBackend(redis)
 
 
 async def teardown():
@@ -168,4 +167,3 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
     loop.run_until_complete(teardown())
-

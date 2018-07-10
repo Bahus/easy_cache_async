@@ -1,8 +1,8 @@
-from .base import BaseCacheInstance
+from .base import BaseCacheBackend
 from ..core import DEFAULT_TIMEOUT, NOT_FOUND
 
 
-class DummyCacheInstance(BaseCacheInstance):
+class DummyCacheInstance(BaseCacheBackend):
     """Dummy cache instance"""
 
     async def delete(self, key):

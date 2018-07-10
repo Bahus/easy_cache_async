@@ -3,8 +3,8 @@ import typing
 from cachetools import Cache
 import aioredis
 
-from easy_cache_async.contrib.locmem_cache import CachedValue, LocMemCacheInstance
-from easy_cache_async.contrib.redis_cache import RedisCacheInstance
+from easy_cache_async.contrib.locmem_cache import CachedValue, LocMemCacheBackend
+from easy_cache_async.contrib.redis_cache import RedisCacheBackend
 from easy_cache_async.core import NOT_FOUND
 from easy_cache_async.utils import force_text
 from .tools import AbstractCacheInstanceProxy
@@ -31,7 +31,7 @@ class LocMemCacheProxy(AbstractCacheInstanceProxy):
     @classmethod
     async def create(cls, cache_class=Cache, cache_options=None, **kwargs):
         cache_options = cache_options or {}
-        return cls(LocMemCacheInstance(cache_class(**cache_options), **kwargs))
+        return cls(LocMemCacheBackend(cache_class(**cache_options), **kwargs))
 
 
 class RedisCacheProxy(AbstractCacheInstanceProxy):
@@ -56,4 +56,4 @@ class RedisCacheProxy(AbstractCacheInstanceProxy):
     async def create(cls, **kwargs):
         from .conftest import REDIS_CONNECTION
         redis = await aioredis.create_redis(REDIS_CONNECTION)
-        return cls(cache_instance=RedisCacheInstance(redis, **kwargs))
+        return cls(cache_instance=RedisCacheBackend(redis, **kwargs))

@@ -8,13 +8,13 @@ import typing
 
 from easy_cache_async import create_tag_cache_key, invalidate_cache_key, invalidate_cache_tags, set_global_cache_instance
 
-from easy_cache_async.contrib.base import BaseCacheInstance
-from easy_cache_async.contrib.redis_cache import RedisCacheInstance
+from easy_cache_async.contrib.base import BaseCacheBackend
+from easy_cache_async.contrib.redis_cache import RedisCacheBackend
 from easy_cache_async.core import DEFAULT_TIMEOUT
 from easy_cache_async.utils import force_text
 
 
-CacheType = typing.Union[BaseCacheInstance, RedisCacheInstance]
+CacheType = typing.Union[BaseCacheBackend, RedisCacheBackend]
 
 
 class AbstractCacheInstanceProxy(ABC):

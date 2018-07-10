@@ -1,7 +1,7 @@
 from asyncio import Lock
 from collections import namedtuple
 
-from .base import BaseCacheInstance
+from .base import BaseCacheBackend
 from ..core import DEFAULT_TIMEOUT, NOT_FOUND, get_timestamp
 
 
@@ -18,8 +18,8 @@ class CachedValue(namedtuple('CachedValue', ['value', 'timeout', 'timestamp'])):
         return (self.timeout * 1000000 + self.timestamp) >= get_timestamp()
 
 
-class LocMemCacheInstance(BaseCacheInstance):
-    """Memory cache instance compatible with easy_cache_async
+class LocMemCacheBackend(BaseCacheBackend):
+    """Memory cache backend compatible with easy_cache_async
 
     Instance of cachetools.Cache (and derivatives) must be passed to init.
     See: https://pypi.python.org/pypi/cachetools

@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 from time import time
+from typing import Callable
 
 from .utils import force_text, get_function_path, getargspec
 
@@ -245,7 +246,7 @@ class TaggedCacheProxy:
 class Cached:
 
     def __init__(self,
-                 function,
+                 function: Callable,
                  cache_key=None,
                  timeout=DEFAULT_TIMEOUT,
                  cache_instance=None,
@@ -276,7 +277,7 @@ class Cached:
         self._cache_alias = cache_alias or DEFAULT_CACHE_ALIAS
 
     @property
-    def function(self):
+    def function(self) -> Callable:
         return self._function
 
     @function.setter
@@ -425,7 +426,7 @@ class Cached:
                 value = template(*meta.args, **meta.kwargs)
 
             if inspect.iscoroutine(value):
-                raise RuntimeError('Coroutine template "%s" is not allowed' % template)
+                raise TypeError('Coroutine template "%s" is not allowed' % template)
 
             return value
 
@@ -518,7 +519,7 @@ class TaggedCached(Cached):
     """ Cache with tags and prefix support """
 
     def __init__(self,
-                 function,
+                 function: Callable,
                  cache_key=None,
                  timeout=None,
                  cache_instance=None,

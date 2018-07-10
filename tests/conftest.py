@@ -70,4 +70,3 @@ def cache_proxy(event_loop, request):
     yield cache_proxy_instance
 
     event_loop.run_until_complete(cache_proxy_instance.clear())
-

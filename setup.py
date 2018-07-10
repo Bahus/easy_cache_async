@@ -30,10 +30,11 @@ def get_long_description():
 
 
 tests_require = [
-    'pytest==3.1.2',
-    'pytest-asyncio==0.6.0',
-    'cachetools==2.0.1',
-    'aioredis==0.3.3',
+    'pytest',
+    'pytest-asyncio',
+    'cachetools',
+    'aioredis',
+    'tox',
 ]
 
 
@@ -64,9 +65,11 @@ setup(
     ],
     long_description=get_long_description(),
     requires=[],
-    install_requires=[],
+    install_requires=['cachetools', 'aioredis'],
     tests_require=tests_require,
     extras_require={
         'tests': tests_require,
+        'locmem': ['cachetools'],
+        'redis': ['aioredis'],
     },
 )

@@ -1,9 +1,9 @@
-from .base import BaseCacheInstance, SerializerMixin
+from .base import BaseCacheBackend, SerializerMixin
 from ..core import DEFAULT_TIMEOUT, NOT_FOUND
 
 
-class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
-    """Redis cache instance compatible with easy_cache.
+class RedisCacheBackend(SerializerMixin, BaseCacheBackend):
+    """Redis cache backend compatible with easy_cache.
 
     Instance of aioredis.Redis instance must be passed to init.
     See: https://pypi.python.org/pypi/aioredis
@@ -25,7 +25,7 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
 
     async def set(self, key, value, timeout=DEFAULT_TIMEOUT):
         """
-            :param timeout: must be in seconds
+        :param timeout: must be in seconds
         """
         timeout = self.make_timeout(timeout)
 
@@ -37,7 +37,7 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
 
     async def set_many(self, data_dict: dict, timeout=DEFAULT_TIMEOUT):
         """
-            :param timeout: must be in seconds
+        :param timeout: must be in seconds
         """
         timeout = self.make_timeout(timeout)
 
@@ -64,7 +64,7 @@ class RedisCacheInstance(SerializerMixin, BaseCacheInstance):
 
     async def close(self):
         """
-            Close redis connection
+        Close redis connection
         """
         self.client.quit()
         return await self.client.wait_closed()
