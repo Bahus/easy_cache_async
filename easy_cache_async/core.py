@@ -254,7 +254,7 @@ class Cached:
                  as_property=False):
 
         # processing different types of cache_key parameter
-
+        self._function = None
         self.is_coroutine = False
 
         self.cache_key = cache_key
