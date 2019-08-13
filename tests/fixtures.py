@@ -49,8 +49,8 @@ class User:
         return self.cache_mock.trigger_result('property')
 
     @ecached_property('manufacturer:{self.id}', 86400)
-    def issue_8_test_property(self):
-        return self.cache_mock.trigger_result('issue_8_property')
+    def test_manufacture_property(self):
+        return self.cache_mock.trigger_result('manufacture_property')
 
     @ecached('{self.id}:{a}:{b}:{c}')
     def instance_method_string(self, a, b, c=10):
@@ -165,8 +165,8 @@ class AsyncUser:
         return self.cache_mock.trigger_result('property')
 
     @ecached_property('manufacturer:{self.id}', 86400)
-    async def issue_8_test_property(self):
-        return self.cache_mock.trigger_result('issue_8_property')
+    async def test_manufacture_property(self):
+        return self.cache_mock.trigger_result('manufacture_property')
 
     @ecached('{self.id}:{a}:{b}:{c}')
     async def instance_method_string(self, a, b, c=10):

@@ -100,12 +100,12 @@ class TestClassCachedDecorator(BaseTest):
         await check_property()
         self.cache_mock.assert_called_once_with('property')
 
-    async def test_issue_8_cache_key_for_property(self):
+    async def test_propery_with_parametrized_cache_key(self):
         async def check_property():
-            assert await self._get_awaitable_value(self.user.issue_8_test_property) == 'issue_8_property'
+            assert await self._get_awaitable_value(self.user.test_manufacture_property) == 'manufacture_property'
 
         await check_property()
-        cache_callable = lambda: getattr(self.user, 'issue_8_test_property')
+        cache_callable = lambda: getattr(self.user, 'test_manufacture_property')
         cache_callable.property = True
 
         cache_key = create_cache_key('manufacturer:{}'.format(self.user.id))
@@ -116,16 +116,16 @@ class TestClassCachedDecorator(BaseTest):
         self.cache_mock.reset_mock()
 
         await check_property()
-        self.cache_mock.assert_called_once_with('issue_8_property')
+        self.cache_mock.assert_called_once_with('manufacture_property')
         self.cache_mock.reset_mock()
 
         await check_property()
         self.cache_mock.assert_not_called()
 
         # invalidate cache
-        await self.user_class.issue_8_test_property.invalidate_cache_by_key(self.user)
+        await self.user_class.test_manufacture_property.invalidate_cache_by_key(self.user)
         await check_property()
-        self.cache_mock.assert_called_once_with('issue_8_property')
+        self.cache_mock.assert_called_once_with('manufacture_property')
 
 
     async def test_cache_key_as_string(self):
