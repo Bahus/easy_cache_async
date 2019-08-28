@@ -254,18 +254,10 @@ class Cached:
                  as_property=False):
 
         # processing different types of cache_key parameter
-        if cache_key is None:
-            self.cache_key = self.create_cache_key
-        elif isinstance(cache_key, (list, tuple)):
-            self.cache_key = create_cache_key(
-                force_text(key).join(('{', '}')) for key in cache_key
-            )
-        else:
-            self.cache_key = cache_key
-
         self._function = None
         self.is_coroutine = False
 
+        self.cache_key = cache_key
         self.function = function
         self.as_property = as_property
         self.timeout = timeout
@@ -275,6 +267,18 @@ class Cached:
         self._scope = None
         self._cache_instance = cache_instance
         self._cache_alias = cache_alias or DEFAULT_CACHE_ALIAS
+
+    @property
+    def cache_key_template(self):
+        # processing different types of cache_key parameter
+        if self.cache_key is None:
+            return self.create_cache_key
+        elif isinstance(self.cache_key, (list, tuple)):
+            return create_cache_key(
+                force_text(key).join(('{', '}')) for key in self.cache_key
+            )
+        else:
+            return self.cache_key
 
     @property
     def function(self) -> Callable:
@@ -357,18 +361,34 @@ class Cached:
 
         return args, kwargs
 
+    def _clone(self, **kwargs):
+        cached = self.__class__(function=self.function, **kwargs)
+
+        cached.cache_key = self.cache_key
+        cached.as_property = self.as_property
+        cached.timeout = self.timeout
+
+        cached._cache_instance = self._cache_instance
+        cached._cache_alias = self._cache_alias
+        return cached
+
     def __get__(self, instance, klass):
-        if instance is not None:
-            # bound method
-            self.instance = instance
-        elif klass:
-            # class method
-            self.klass = klass
+        cached = self._clone()
 
-        if self.as_property and instance is not None:
-            return self.__call__()
+        if cached.as_property and instance is None and klass is not None:
+            # special case – calling property as class
+            # attr means that we want to run invalidation, so we out of any scope
+            return cached
 
-        return self
+        if instance:
+            cached.instance = instance
+        if klass:
+            cached.klass = klass
+
+        if cached.as_property and instance is not None:
+            return cached()
+
+        return cached
 
     async def get_cached_value(self, cache_key):
         logger.debug('Get cache_key="%s"', cache_key)
@@ -445,6 +465,7 @@ class Cached:
             'Unsupported type for key template: {!r}'.format(type(template))
         )
 
+
     def collect_meta(self, args, kwargs, returned_value=NOT_SET):
         """ :returns: MetaCallable """
         args, kwargs = self.update_arguments(args, kwargs)
@@ -480,7 +501,7 @@ class Cached:
         return meta
 
     def generate_cache_key(self, callable_meta):
-        return self._format(self.cache_key, callable_meta)
+        return self._format(self.cache_key_template, callable_meta)
 
     async def invalidate_cache_by_key(self, *args, **kwargs):
         callable_meta = self.collect_meta(args, kwargs)
@@ -504,7 +525,7 @@ class Cached:
         return (
             '<Cached: callable="{}", cache_key="{}", timeout={}>'.format(
                 get_function_path(self.function, self.scope),
-                get_function_path(self.cache_key),
+                get_function_path(self.cache_key_template),
                 self.timeout)
         )
 
@@ -555,6 +576,9 @@ class TaggedCached(Cached):
             if self._cache_instance is None:
                 self._cache_instance = TaggedCacheProxy(caches[self._cache_alias])
             return self._cache_instance
+
+    def _clone(self, **kwargs):
+        return super(TaggedCached, self)._clone(tags=self.tags, prefix=self.prefix)
 
     async def invalidate_cache_by_tags(self, tags=(), *args, **kwargs):
         """ Invalidate cache for this method or property by one of provided tags
@@ -608,7 +632,7 @@ class TaggedCached(Cached):
             '<TaggedCached: callable="{}", cache_key="{}", tags="{}", prefix="{}", '
             'timeout={}>'.format(
                 get_function_path(self.function, self.scope),
-                get_function_path(self.cache_key),
+                get_function_path(self.cache_key_template),
                 get_function_path(self.tags),
                 get_function_path(self.prefix),
                 self.timeout)
